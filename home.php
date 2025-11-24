@@ -2,7 +2,7 @@
 <html>
 <body>
 <h2>PROJECT IIR</h2>
-<form action="" method="POST">
+<form action="proses.php" method="POST">
     <label>Nama Penulis:</label>
     <input type="text" id="penulis" name="penulis"><br><br>
     <label>Keyword Artikel:</label>
