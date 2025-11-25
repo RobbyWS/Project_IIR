@@ -3,12 +3,13 @@
 <body>
 <h2>PROJECT IIR</h2>
 <form action="proses.php" method="POST">
+    <input type="hidden" name="source" value="scholar">
     <label>Nama Penulis:</label>
-    <input type="text" id="penulis" name="penulis"><br><br>
+    <input type="text" name="penulis"><br><br>
     <label>Keyword Artikel:</label>
-    <input type="text" id="keyword" name="keyword"><br><br>
+    <input type="text" name="keyword"><br><br>
     <label>Jumlah Data:</label>
-    <input type="text" id="jumlahData" name="jumlahData"><br><br>
+    <input type="text" name="jumlahData"><br><br>
     <input type="submit" name="search" value="Search">
 </form>
 </body>
