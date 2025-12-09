@@ -1,96 +1,178 @@
 <?php
-include_once('simple_html_dom.php');
+require 'simple_html_dom.php';
 
-echo "<b><a href='index.php'>< Back to Home</a></b><br><br>";
+/* ========================================
+   Fungsi Request HTML (Anti Blokir Dasar)
+=========================================*/
+function getHTML($url) {
+    $headers = [
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Language: en-US,en;q=0.9",
+    ];
 
-echo "
-<table border='1' cellpadding='10' cellspacing='0'>
-    <tr>
-        <th>Judul Artikel</th>
-        <th>Penulis</th>
-        <th>Tanggal Rilis</th>
-        <th>Nama Jurnal</th>
-        <th>Jumlah Sitasi</th>
-        <th>Link Jurnal</th>
-    </tr>
-";
+    $ch = curl_init();
+    curl_setopt_array($ch,[
+        CURLOPT_URL => $url,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_TIMEOUT => 20
+    ]);
+    $resp = curl_exec($ch);
+    curl_close($ch);
 
-if($_POST['source'] == 'scholar') {
+    if(!$resp) return null;
+    if(stripos($resp,"unusual traffic")!==false) return "CAPTCHA";
 
-    $author  = urlencode($_POST['penulis']);
-    $keyword = urlencode($_POST['keyword']);
-    $limit   = (int)$_POST['jumlahData'];
+    return str_get_html($resp);
+}
 
-    // URL Google Scholar
-    $url = "https://scholar.google.com/scholar?q=$author+$keyword";
+/* ======================= Format Table ======================= */
+function smart_trim($text,$max=120){
+    $text = trim(preg_replace('/\s+/',' ',$text));
+    return (strlen($text)<=$max) ? htmlspecialchars($text)
+         : '<span title="'.htmlspecialchars($text).'">'.substr($text,0,$max).'...</span>';
+}
 
-    // Ambil HTML
-    $html = file_get_html($url);
-
-    if(!$html){
-        echo "<tr><td colspan='6'>Gagal mengambil data dari Google Scholar.</td></tr>";
+/* ===================== Ambil Sitasi ===================== */
+function extract_citation($node){
+    foreach($node->find('.gs_fl a') as $a){
+        if(preg_match('/Cited by ([0-9]+)/i',$a->plaintext,$m)) return intval($m[1]);
+        if(preg_match('/Dikutip oleh ([0-9]+)/i',$a->plaintext,$m)) return intval($m[1]);
     }
-    else {
+    return 0;
+}
 
-        $i = 0;
-        foreach($html->find('.gs_ri') as $item) {
+/* ===================== PARSE META (Journal saja, Tahun dipisah) ===================== */
+function parse_meta($meta){
+    $out=['journal'=>'-','year'=>'-'];
 
-            if ($i >= $limit) break;
+    if(preg_match('/\b(19|20)\d{2}\b/', $meta, $y)) {
+        $out['year']=$y[0];
+        $meta=str_replace($y[0], '', $meta);
+    }
 
-            // ==========================
-            // 1. Judul + Link
-            // ==========================
-            $titleEl = $item->find('.gs_rt a', 0);
-            $title   = $titleEl ? $titleEl->plaintext : "Tanpa Judul";
-            $link    = $titleEl ? $titleEl->href : "#";
+    $parts = explode("-", $meta);
+    $journal = $parts[1] ?? $meta;
 
-            // ==========================
-            // 2. Penulis, Jurnal, Tahun/Tanggal
-            // ==========================
-            $meta = $item->find('.gs_a', 0);
-            $metaText = $meta ? $meta->plaintext : "-";
+    $journal = preg_replace('/[,.…]+/u', '', $journal);
 
-            // Format Contoh Google Scholar:
-            // "A Smith, B John - Renewable Energy, 2020"
-            $parts = explode(" - ", $metaText);
+    /* ========= FIX HAPUS SPASI DEPAN JURNAL ========= */
+    $journal = preg_replace('/^[\s\x{00A0}\x{200B}-\x{200D}\x{202F}\x{205F}\x{3000}]+/u','',$journal);
+    $journal = preg_replace('/\s{2,}/',' ', $journal);
+    $journal = trim($journal);
 
-            $authors = $parts[0] ?? "-";
-            $journal = $parts[1] ?? "-";
+    $out['journal']=$journal;
+    return $out;
+}
 
-            // Cari tanggal atau tahun
-            preg_match('/\b((19|20)\d{2}|[0-9]{2}\/[0-9]{2}\/[0-9]{4})\b/', $metaText, $dateMatch);
-            $releaseDate = $dateMatch[0] ?? "-";
+/* ===================== Similarity ===================== */
+function jaccard_similarity($a,$b){
+    $to = fn($t)=>array_unique(array_filter(explode(" ",strtolower(preg_replace('/[^a-z0-9 ]/i',' ',$t)))));
+    $A=$to($a); $B=$to($b);
+    if(!$A||!$B) return 0;
+    return count(array_intersect($A,$B)) / count(array_unique(array_merge($A,$B)));
+}
 
-            // ==========================
-            // 3. Jumlah Sitasi
-            // ==========================
-            $citations = 0;
-            foreach($item->find('.gs_fl a') as $a) {
-                if (strpos($a->plaintext, 'Cited by') !== false) {
-                    $citations = intval(str_replace("Cited by ", "", $a->plaintext));
+/* ===================== Input ===================== */
+$penulis=$_POST['penulis']??'';
+$keyword=$_POST['keyword']??'';
+$jumlah=max(1,intval($_POST['jumlahData']??5));
+
+$query=urlencode("$penulis $keyword");
+$url="https://scholar.google.com/scholar?hl=id&q=$query";
+$html=getHTML($url);
+
+if($html==="CAPTCHA"){
+    die("<h2>⚠ CAPTCHA - buka manual:<br><a href='$url'>$url</a></h2>");
+}
+if(!$html) die("Gagal load Google Scholar");
+
+/* ===================== PROSES SCRAPE ===================== */
+$results=[];
+$count=0;
+
+foreach($html->find('.gs_r.gs_or.gs_scl') as $r){
+    if($count>=$jumlah) break;
+
+    $titleNode=$r->find('.gs_rt a',0);
+    $title=$titleNode?trim($titleNode->plaintext):'-';
+    $link=$titleNode?$titleNode->href:"#";
+    $cite=extract_citation($r);
+
+    $metaNode=$r->find('.gs_a',0);
+    $parsed= parse_meta($metaNode? $metaNode->plaintext : '-');
+
+    /*  AMBIL PENULIS LENGKAP DARI DETAIL */
+    $fullAuthors="-";
+    if($link!=="#"){
+        $detail=getHTML($link);
+        if($detail && $detail!=="CAPTCHA"){
+            foreach($detail->find('.gsc_oci_field') as $i=>$f){
+                if(trim($f->plaintext)=="Pengarang"){
+                    $fullAuthors=trim($detail->find('.gsc_oci_value',$i)->plaintext);
                     break;
                 }
             }
-
-            // ==========================
-            // OUTPUT TABEL
-            // ==========================
-
-            echo "
-            <tr>
-                <td>$title</td>
-                <td>$authors</td>
-                <td>$releaseDate</td>
-                <td>$journal</td>
-                <td>$citations</td>
-                <td><a href='$link' target='_blank'>$link</a></td>
-            </tr>
-            ";
-
-            $i++;
         }
+        sleep(2);
     }
-}
 
-echo "</table>";
+    $results[]=[
+        'judul'=>$title,
+        'penulis'=>$fullAuthors,
+        'jurnal'=>$parsed['journal'],
+        'tahun'=>$parsed['year'],
+        'sitasi'=>$cite,
+        'link'=>$link,
+        'similarity'=>jaccard_similarity($keyword,$title)
+    ];
+    $count++;
+}
 ?>
+<!DOCTYPE html>
+<html>
+<head>
+<title>Hasil Google Scholar</title>
+<style>
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #000;padding:8px}
+th{background:#eee}
+.num{text-align:center}
+</style>
+</head>
+<body>
+
+<a href="index.php">&lt; Back</a>
+
+<h3>Nama Penulis : <?=$penulis?></h3>
+<h3>Keyword Artikel : <?=$keyword?></h3>
+<h3>Jumlah data = <?=count($results)?></h3>
+
+<table>
+<tr>
+<th>Judul Artikel</th>
+<th>Penulis Lengkap</th>
+<th>Nama Jurnal</th>
+<th>Tahun</th>
+<th>Jumlah Sitasi</th>
+<th>Link Jurnal</th>
+<th>Nilai Similaritas</th>
+</tr>
+
+<?php foreach($results as $r): ?>
+<tr>
+<td><?=smart_trim($r['judul'],160)?></td>
+<td><?=smart_trim($r['penulis'],200)?></td>
+<td><?=$r['jurnal']?></td>
+<td class="num"><?=$r['tahun']?></td>
+<td class="num"><?=$r['sitasi']?></td>
+<td><a href="<?=$r['link']?>" target="_blank">Open</a></td>
+<td class="num"><?=number_format($r['similarity'],6)?></td>
+</tr>
+<?php endforeach; ?>
+
+</table>
+</body>
+</html>
