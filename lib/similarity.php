@@ -1,7 +1,5 @@
 <?php
-/* ======================================================
-   JACCARD SIMILARITY (STEMMED)
-====================================================== */
+//JACCARD SIMILARITY (STEMMED)
 function jaccardSimilarity($textA, $textB){
     $A = preprocessText($textA);
     $B = preprocessText($textB);
@@ -12,9 +10,7 @@ function jaccardSimilarity($textA, $textB){
          / count(array_unique(array_merge($A,$B)));
 }
 
-/* ======================================================
-   DICE COEFFICIENT (OPSIONAL)
-====================================================== */
+//DICE COEFFICIENT (OPSIONAL)
 function diceSimilarity($textA, $textB){
     $A = preprocessText($textA);
     $B = preprocessText($textB);

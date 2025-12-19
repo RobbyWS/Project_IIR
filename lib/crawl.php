@@ -1,9 +1,7 @@
     <?php
 require_once __DIR__ . '/../simple_html_dom.php';
 
-/* ======================================================
-   HTTP REQUEST (ANTI BLOKIR DASAR)
-====================================================== */
+//HTTP REQUEST (ANTI BLOKIR)
 function getHTML($url)
 {
     $headers = [
@@ -32,9 +30,7 @@ function getHTML($url)
     return str_get_html($resp);
 }
 
-/* ======================================================
-   PARSE META (JURNAL & TAHUN)
-====================================================== */
+//PARSE META (JURNAL & TAHUN)
 function parse_meta($meta)
 {
     $out = ['journal' => '-', 'year' => '-'];
@@ -52,9 +48,7 @@ function parse_meta($meta)
     return $out;
 }
 
-/* ======================================================
-   SEMANTIC SCHOLAR API (AUTHOR + CITATION)
-====================================================== */
+//SEMANTIC SCHOLAR API (AUTHOR + CITATION)
 function semanticScholar($title)
 {
     $q = urlencode(trim($title));
@@ -93,9 +87,7 @@ function semanticScholar($title)
     ];
 }
 
-/* ======================================================
-   NORMALISASI NAMA PENULIS
-====================================================== */
+//NORMALISASI NAMA PENULIS
 function normalizeAuthors($authors)
 {
     if (!$authors || $authors === '-')
@@ -114,9 +106,7 @@ function normalizeAuthors($authors)
     return implode(', ', $clean) ?: '-';
 }
 
-/* ======================================================
-   FUNGSI UTAMA CRAWLING
-====================================================== */
+//FUNGSI UTAMA CRAWLING
 function crawlScholar($penulis, $keyword, $limit)
 {
 
