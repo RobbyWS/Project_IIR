@@ -6,7 +6,7 @@ include_once('simple_html_dom.php');
 /* =====================================================
    INPUT & VALIDASI
 ===================================================== */
-$author  = trim($_POST['author'] ?? '');
+$author  = trim($_POST['penulis'] ?? '');
 $keyword = trim($_POST['keyword'] ?? '');
 $limit   = isset($_POST['jumlahData']) ? (int)$_POST['jumlahData'] : 5;
 
@@ -78,10 +78,39 @@ foreach ($scholarDOM->find('div.gs_r.gs_or.gs_scl') as $row) {
     $articleDOM->load($articleRes['message']);
 
     /* ---------- AUTHOR METADATA ---------- */
-    $authors = [];
-    foreach ($articleDOM->find('meta[name=citation_author]') as $a) {
-        $authors[] = trim($a->content);
-    }
+    //GANTI DISINI
+    // $authors = [];
+    // foreach ($articleDOM->find('meta[name=citation_author]') as $a) {
+    //     $authors[] = trim($a->content);
+    // }
+
+    /* ---------- VIEW ARTICLE LINK (SCHOLAR) ---------- */
+       $authors = []; // default kosong
+
+        $viewNode = $row->find('a[href*="view_op=view_citation"]', 0);
+        if ($viewNode) {
+            $viewLink = 'https://scholar.google.com' . $viewNode->href;
+
+            $articlePenulis = extract_html($viewLink);
+
+            if ($articlePenulis['code'] === 200) {
+                $viewDOM = new simple_html_dom();
+                $viewDOM->load($articlePenulis['message']);
+
+                foreach ($viewDOM->find('div.gs_scl') as $field) {
+                    $label = $field->find('div.gsc_oci_field', 0);
+                    $value = $field->find('div.gsc_oci_value', 0);
+
+                    if ($label && strtolower(trim($label->plaintext)) === 'authors') {
+                        $authors = array_map('trim', explode(',', $value->plaintext));
+                        break;
+                    }
+                }
+
+                $viewDOM->clear();
+            }
+        }
+
 
     // FILTER AUTHOR (INI KUNCI AKURASI)
     if ($author !== '' && !isAuthorMatch($authors, $author)) {
@@ -89,6 +118,9 @@ foreach ($scholarDOM->find('div.gs_r.gs_or.gs_scl') as $row) {
         unset($articleDOM);
         continue;
     }
+
+      
+
 
     /* ---------- TANGGAL PUBLIKASI ---------- */
     $tanggal = '-';
@@ -108,6 +140,7 @@ foreach ($scholarDOM->find('div.gs_r.gs_or.gs_scl') as $row) {
     /* ---------- CLEAN MEMORY ---------- */
     $articleDOM->clear();
     unset($articleDOM);
+    sleep(5);
 
     $count++;
 }
@@ -119,12 +152,6 @@ $scholarDOM->clear();
 unset($scholarDOM);
 
 #endregion
-
-
-
-#endregion
-
-
 
 #region cara pertama
 // $penulis = isset($_POST['penulis']) ? trim($_POST['penulis']) : '';
