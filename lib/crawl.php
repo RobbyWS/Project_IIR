@@ -124,19 +124,32 @@ function crawlScholar($penulis, $keyword, $limit)
         if ($count >= $limit)
             break;
 
+        //mengambil link
         $t = $r->find('.gs_rt a', 0);
         if (!$t)
             continue;
 
         $title = trim($t->plaintext);
+        //link
         $link = $t->href;
 
+        //parse meta tahun yang nanti jadi tanggal
         $metaNode = $r->find('.gs_a', 0);
         $metaText = $metaNode ? $metaNode->plaintext : '-';
         $meta = parse_meta($metaText);
 
+
+        //penulis
         $authors = '-';
+
+        //sitasi
         $cites = 0;
+
+
+        $citeNode = $r->find('a[href*="cites"]', 0);
+        if ($citeNode && preg_match('/Cited by\s+(\d+)/i', $citeNode->plaintext, $m)) {
+            $cites = (int)$m[1];
+        }
 
         $sem = semanticScholar($title);
         if ($sem['authors'] !== '-') {
