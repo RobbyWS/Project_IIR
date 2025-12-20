@@ -1,105 +1,233 @@
 <?php
 include_once('simple_html_dom.php');
 
-$penulis = isset($_POST['penulis']) ? trim($_POST['penulis']) : '';
-$keyword = isset($_POST['keyword']) ? trim($_POST['keyword']) : '';
+#region cara kedua
+
+/* =====================================================
+   INPUT & VALIDASI
+===================================================== */
+$author  = trim($_POST['author'] ?? '');
+$keyword = trim($_POST['keyword'] ?? '');
 $limit   = isset($_POST['jumlahData']) ? (int)$_POST['jumlahData'] : 5;
 
-// VALIDASI
-if ($penulis === '' && $keyword === '') {
-    die("Penulis atau keyword harus diisi");
+if ($author === '' && $keyword === '') {
+    die('Penulis atau keyword harus diisi');
 }
 
 if ($limit <= 0) {
     $limit = 5;
 }
 
-/**
- * ============================
- * QUERY GOOGLE SCHOLAR
- * ============================
- */
-$query = trim($penulis . ' ' . $keyword);
+/* =====================================================
+   QUERY GOOGLE SCHOLAR
+===================================================== */
+$query = trim($author . ' ' . $keyword);
 $scholarUrl = "https://scholar.google.com/scholar?q=" . urlencode($query);
 
-/**
- * ============================
- * FETCH SCHOLAR
- * ============================
- */
+/* =====================================================
+   FETCH SCHOLAR PAGE
+===================================================== */
 $scholarRes = extract_html($scholarUrl);
 if ($scholarRes['code'] !== 200) {
-    die("Gagal mengakses Google Scholar");
+    die('Gagal mengakses Google Scholar');
 }
 
 $scholarDOM = new simple_html_dom();
 $scholarDOM->load($scholarRes['message']);
 
-$i = 0;
+/* =====================================================
+   HELPER: CEK AUTHOR
+===================================================== */
+function isAuthorMatch(array $authors, string $target): bool {
+    foreach ($authors as $a) {
+        if (stripos($a, $target) !== false) {
+            return true;
+        }
+    }
+    return false;
+}
 
-foreach ($scholarDOM->find('.gs_r.gs_or.gs_scl') as $r) {
+/* =====================================================
+   PARSE RESULT
+===================================================== */
+$count = 0;
 
-    if ($i >= $limit) break;
+foreach ($scholarDOM->find('div.gs_r.gs_or.gs_scl') as $row) {
 
-    // ============================
-    // JUDUL & LINK ARTIKEL
-    // ============================
-    $a = $r->find('.gs_rt a', 0);
-    if (!$a) continue;
+    if ($count >= $limit) break;
 
-    $judul = trim($a->plaintext);
-    $link  = $a->href;
+    /* ---------- JUDUL & LINK ---------- */
+    $titleNode = $row->find('h3.gs_rt a', 0);
+    if (!$titleNode) continue;
 
-    // ============================
-    // TEMBAK LINK PUBLISHER
-    // ============================
-    sleep(5); // ANTI BLOCK
+    $judul = trim($titleNode->plaintext);
+    $link  = $titleNode->href;
 
+    /* ---------- SITASI ---------- */
+    $citeNode = $row->find('a[href*="cites"]', 0);
+    $sitasi = $citeNode ? trim($citeNode->plaintext) : '0';
+
+    /* ---------- ANTI BLOCK ---------- */
+    sleep(5);
+
+    /* ---------- FETCH HALAMAN ARTIKEL ---------- */
     $articleRes = extract_html($link);
     if ($articleRes['code'] !== 200) continue;
 
     $articleDOM = new simple_html_dom();
     $articleDOM->load($articleRes['message']);
 
-    // ============================
-    // TANGGAL PUBLISH RESMI
-    // ============================
-    $tanggal_publish = '-';
-    if ($m = $articleDOM->find('meta[name=citation_publication_date]', 0)) {
-        $tanggal_publish = date('d/m/Y', strtotime($m->content));
-    }
-
-    // ============================
-    // NAMA PENULIS
-    // ============================
+    /* ---------- AUTHOR METADATA ---------- */
     $authors = [];
     foreach ($articleDOM->find('meta[name=citation_author]') as $a) {
         $authors[] = trim($a->content);
     }
 
-    $jumlah_penulis = count($authors);
+    // FILTER AUTHOR (INI KUNCI AKURASI)
+    if ($author !== '' && !isAuthorMatch($authors, $author)) {
+        $articleDOM->clear();
+        unset($articleDOM);
+        continue;
+    }
 
-    // ============================
-    // OUTPUT
-    // ============================
+    /* ---------- TANGGAL PUBLIKASI ---------- */
+    $tanggal = '-';
+    if ($m = $articleDOM->find('meta[name=citation_publication_date]', 0)) {
+        $tanggal = date('d/m/Y', strtotime($m->content));
+    }
+
+    /* ---------- OUTPUT ---------- */
     echo "<b>Judul</b> : {$judul}<br>";
-    echo "<b>Tanggal Publish</b> : {$tanggal_publish}<br>";
-    echo "<b>Penulis</b> : " . ($authors ? implode(', ', $authors) : '-') . "<br>";
-    echo "<b>Jumlah Penulis</b> : {$jumlah_penulis}<br>";
+    echo "<b>Penulis</b> : " . implode(', ', $authors) . "<br>";
+    echo "<b>Jumlah Penulis</b> : " . count($authors) . "<br>";
+    echo "<b>Tanggal Publish</b> : {$tanggal}<br>";
+    echo "<b>Sitasi</b> : {$sitasi}<br>";
     echo "<b>Link</b> : {$link}<br>";
-    echo "<b>Query</b> : {$query}<br>";
     echo "<hr>";
 
-    // CLEAN MEMORY
+    /* ---------- CLEAN MEMORY ---------- */
     $articleDOM->clear();
     unset($articleDOM);
 
-    $i++;
+    $count++;
 }
 
-// CLEAN MEMORY
+/* =====================================================
+   CLEAN MEMORY
+===================================================== */
 $scholarDOM->clear();
 unset($scholarDOM);
+
+#endregion
+
+
+
+#endregion
+
+
+
+#region cara pertama
+// $penulis = isset($_POST['penulis']) ? trim($_POST['penulis']) : '';
+// $keyword = isset($_POST['keyword']) ? trim($_POST['keyword']) : '';
+// $limit   = isset($_POST['jumlahData']) ? (int)$_POST['jumlahData'] : 5;
+
+// // VALIDASI
+// if ($penulis === '' && $keyword === '') {
+//     die("Penulis atau keyword harus diisi");
+// }
+
+// if ($limit <= 0) {
+//     $limit = 5;
+// }
+
+// /**
+//  * ============================
+//  * QUERY GOOGLE SCHOLAR
+//  * ============================
+//  */
+// $query = trim($penulis . ' ' . $keyword);
+// $scholarUrl = "https://scholar.google.com/scholar?q=" . urlencode($query);
+
+// /**
+//  * ============================
+//  * FETCH SCHOLAR
+//  * ============================
+//  */
+// $scholarRes = extract_html($scholarUrl);
+// if ($scholarRes['code'] !== 200) {
+//     die("Gagal mengakses Google Scholar");
+// }
+
+// $scholarDOM = new simple_html_dom();
+// $scholarDOM->load($scholarRes['message']);
+
+// $i = 0;
+
+// foreach ($scholarDOM->find('.gs_r.gs_or.gs_scl') as $r) {
+
+//     if ($i >= $limit) break;
+
+//     // ============================
+//     // JUDUL & LINK ARTIKEL
+//     // ============================
+//     $a = $r->find('.gs_rt a', 0);
+//     if (!$a) continue;
+
+//     $judul = trim($a->plaintext);
+//     $link  = $a->href;
+
+//     // ============================
+//     // TEMBAK LINK PUBLISHER
+//     // ============================
+//     sleep(5); // ANTI BLOCK
+
+//     $articleRes = extract_html($link);
+//     if ($articleRes['code'] !== 200) continue;
+
+//     $articleDOM = new simple_html_dom();
+//     $articleDOM->load($articleRes['message']);
+
+//     // ============================
+//     // TANGGAL PUBLISH RESMI
+//     // ============================
+//     $tanggal_publish = '-';
+//     if ($m = $articleDOM->find('meta[name=citation_publication_date]', 0)) {
+//         $tanggal_publish = date('d/m/Y', strtotime($m->content));
+//     }
+
+//     // ============================
+//     // NAMA PENULIS
+//     // ============================
+//     $authors = [];
+//     foreach ($articleDOM->find('meta[name=citation_author]') as $a) {
+//         $authors[] = trim($a->content);
+//     }
+
+//     $jumlah_penulis = count($authors);
+
+//     // ============================
+//     // OUTPUT
+//     // ============================
+//     echo "<b>Judul</b> : {$judul}<br>";
+//     echo "<b>Tanggal Publish</b> : {$tanggal_publish}<br>";
+//     echo "<b>Penulis</b> : " . ($authors ? implode(', ', $authors) : '-') . "<br>";
+//     echo "<b>Jumlah Penulis</b> : {$jumlah_penulis}<br>";
+//     echo "<b>Link</b> : {$link}<br>";
+//     echo "<b>Query</b> : {$query}<br>";
+//     echo "<hr>";
+
+//     // CLEAN MEMORY
+//     $articleDOM->clear();
+//     unset($articleDOM);
+
+//     $i++;
+// }
+
+// // CLEAN MEMORY
+// $scholarDOM->clear();
+// unset($scholarDOM);
+#endregion
+
 
 function extract_html($url) {
 
