@@ -94,7 +94,7 @@ foreach ($scholarDOM->find('tr.gsc_a_tr') as $row) {
     echo "<b>Tanggal Publish</b> : {$publishDate}<br><hr>";
 
     $count++;
-    usleep(900000);
+    usleep(5);
 }
 
 /* ================= CLEAN MEMORY ================= */
