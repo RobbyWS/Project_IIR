@@ -1,0 +1,3 @@
+cari file python terus -m pip install selenium webdriver-manager
+contoh : 
+"C:\Users\LENOVO\AppData\Local\Programs\Python\Python313\python.exe" -m pip install selenium webdriver-manager
