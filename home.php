@@ -13,7 +13,7 @@
     <input type="submit" name="search" value="Search">
 </form> -->
 
-<form action="crawl_new.php" method="POST">
+<form action="crawl_dom.php" method="POST">
     <input type="hidden" name="source" value="scholar">
     <label>Nama Penulis:</label>
     <input type="text" name="penulis"><br><br>
