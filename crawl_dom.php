@@ -49,7 +49,7 @@ function crawl_detail_page($detail_url) {
     }
     
     $dom = new simple_html_dom();
-    @$dom->load($result['message']);
+    $dom->load($result['message']);
     
     $details = [];
     
