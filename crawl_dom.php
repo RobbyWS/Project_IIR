@@ -280,9 +280,7 @@ if ($res['code'] == '200') {
         $i++;
         
         // Add delay between processing results
-        if ($i < $limit) {
-            sleep(rand(2, 4));
-        }
+        sleep(rand(2, 4));
     }
     
     if ($i == 0) {
@@ -305,51 +303,113 @@ if ($res['code'] == '200') {
    HELPER FUNCTIONS (Keep your original extract_html)
 ========================= */
 function extract_html($url) {
-    $response = ['code' => '', 'message' => '', 'status' => false];
-    
-    $agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-    
-    $host = parse_url($url, PHP_URL_HOST);
-    $scheme = parse_url($url, PHP_URL_SCHEME);
-    $referrer = $scheme . '://' . $host; 
-    
-    $curl = curl_init();
-    curl_setopt_array($curl, [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_USERAGENT => $agent,
-        CURLOPT_REFERER => $referrer,
-        CURLOPT_CONNECTTIMEOUT => 15,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_SSL_VERIFYHOST => 0,
-        CURLOPT_SSL_VERIFYPEER => 0,
-        CURLOPT_ENCODING => 'gzip, deflate',
-    ]);
-    
-    $content = curl_exec($curl);
-    $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    $response['code'] = $code;
-    
-    if ($content === false) {
-        $response['status'] = false;
-        $response['message'] = curl_error($curl);
-    } else {
-        $response['status'] = true;
-        $response['message'] = $content;
-    }
-    
-    curl_close($curl);
-    return $response;
-}
+
+		$response = array();
+
+		$response['code']='';
+
+		$response['message']='';
+
+		$response['status']=false;	
+
+		$agent = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.1) Gecko/20061204 Firefox/2.0.0.1';
+
+		// Some websites require referrer
+
+		$host = parse_url($url, PHP_URL_HOST);
+
+		$scheme = parse_url($url, PHP_URL_SCHEME);
+
+		$referrer = $scheme . '://' . $host; 
+
+		$curl = curl_init();
+
+		curl_setopt($curl, CURLOPT_HEADER, false);
+
+		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+
+		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+
+		curl_setopt($curl, CURLOPT_URL, $url);
+
+
+		curl_setopt($curl, CURLOPT_USERAGENT, $agent);
+
+		curl_setopt($curl, CURLOPT_REFERER, $referrer);
+
+		curl_setopt($curl, CURLOPT_COOKIESESSION, 0);
+
+		curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+
+		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 5);
+
+		// allow to crawl https webpages
+
+		curl_setopt($curl,CURLOPT_SSL_VERIFYHOST,0);
+
+		curl_setopt($curl,CURLOPT_SSL_VERIFYPEER,0);
+
+		// the download speed must be at least 1 byte per second
+
+		curl_setopt($curl,CURLOPT_LOW_SPEED_LIMIT, 1);
+
+		// if the download speed is below 1 byte per second for more than 30 seconds curl will give up
+
+		curl_setopt($curl,CURLOPT_LOW_SPEED_TIME, 30);
+
+		$content = curl_exec($curl);
+
+		$code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+
+		$response['code'] = $code;
+
+		if ($content === false) 
+
+		{
+
+			$response['status'] = false;
+
+			$response['message'] = curl_error($curl);
+
+		}
+
+		else
+
+		{
+
+			$response['status'] = true;
+
+			$response['message'] = $content;
+
+		}
+
+		curl_close($curl);
+
+		return $response;
+
+	}
 
 function isBotDetected($html, $httpCode) {
-    if ($httpCode != 200) return true;
-    $patterns = ['unusual traffic', 'robot', 'detected', 'sorry', 'captcha'];
-    $htmlLower = strtolower($html);
-    foreach ($patterns as $p) {
-        if (strpos($htmlLower, $p) !== false) return true;
+    if ($httpCode != 200 && $httpCode != 302) return true;
+    
+    $patterns = [
+        '/sorry/i',
+        '/captcha/i',
+        '/unusual traffic/i',
+        '/robot/i',
+        '/detected unusual traffic/i',
+        '/your computer or network may be sending automated queries/i'
+    ];
+    
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $html)) return true;
     }
+    
+    // Cek apakah ini halaman CAPTCHA Google
+    if (strpos($html, 'https://www.google.com/recaptcha/') !== false) {
+        return true;
+    }
+    
     return false;
 }
 ?>
