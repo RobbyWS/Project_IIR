@@ -1,5 +1,6 @@
 <?php
 require_once 'simple_html_dom.php';
+set_time_limit(0);
 
 /* =========================
    INPUT FORM
@@ -15,16 +16,16 @@ if ($author === '' && $keyword === '') {
 #region crawl 
 //crawl pada search
 $query = trim($author . ' ' . $keyword);
-$url = "https://scholar.google.com/scholar?q=" . urlencode($query);
+$url = "https://scholar.google.com/scholar?q=" . urlencode($author);
 
 $res = extract_html($url);
 
 if ($res['code'] !== 200) {
     die("Gagal mengakses Google Scholar");
 }
-//debug bloack 
-file_put_contents('debug_scholar.html', $res['message']);
-exit;
+//debug block 
+// file_put_contents('debug_scholar.html', $res['message']);
+// exit;
 
 if($res['code'] == '200'){
     $html = new simple_html_dom();
@@ -61,6 +62,8 @@ if($res['code'] == '200'){
 
         // Ambil URL detail untuk artikel INI
         $titleNode = $row->find('a.gsc_a_at', 0);
+        
+
         if ($titleNode) {
             $detail_url = 'https://scholar.google.com' . html_entity_decode($titleNode->href);
             
@@ -77,21 +80,21 @@ if($res['code'] == '200'){
                     $label = trim($detail_row->find('div.gsc_oci_field', 0)->plaintext ?? '');
                     $value = trim($detail_row->find('div.gsc_oci_value', 0)->plaintext ?? '');
                     
-                    if ($label == 'Authors') {
+                    if ($label == 'Pengarang') {
                         echo "<b>Penulis</b>: {$value}<br>";
                     }
-                    if ($label == 'Publication date') {
+                    if ($label == 'Tanggal terbit') {
                         echo "<b>Tanggal Terbit</b>: {$value}<br>";
                     }
-                    if ($label == 'Journal') {
+                    if ($label == 'Jurnal') {
                         echo "<b>Jurnal</b>: {$value}<br>";
                     }
-                    sleep(1); // Kurangi delay jika perlu
+                    sleep(3); 
                 }
             }
         }
         
-        echo "<hr>";
+        
         $i++;
         sleep(5); //anti block
     }
@@ -193,29 +196,6 @@ function extract_html($url) {
 	}
 
 
-// function isBotDetected($html, $httpCode) {
 
-//     if ($httpCode != 200) {
-//         return true;
-//     }
-
-//     $patterns = [
-//         'unusual traffic',
-//         'robot',
-//         'detected',
-//         'sorry',
-//         'captcha'
-//     ];
-
-//     $htmlLower = strtolower($html);
-
-//     foreach ($patterns as $p) {
-//         if (strpos($htmlLower, $p) !== false) {
-//             return true;
-//         }
-//     }
-
-//     return false;
-// }
 #endregion
 ?>
