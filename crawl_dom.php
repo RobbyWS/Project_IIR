@@ -2,11 +2,8 @@
 require_once 'simple_html_dom.php';
 set_time_limit(0);
 
-/* =========================
-   INPUT FORM
-========================= */
+//input dari form
 $author  = trim($_POST['penulis'] ?? '');
-$keyword = trim($_POST['keyword'] ?? '');
 $limit   = (int)($_POST['jumlahData']);
 
 if ($author === '' && $keyword === '') {
@@ -15,7 +12,6 @@ if ($author === '' && $keyword === '') {
 
 #region crawl 
 //crawl pada search
-$query = trim($author . ' ' . $keyword);
 $url = "https://scholar.google.com/scholar?q=" . urlencode($author);
 
 $res = extract_html($url);
@@ -23,9 +19,7 @@ $res = extract_html($url);
 if ($res['code'] !== 200) {
     die("Gagal mengakses Google Scholar");
 }
-//debug block 
-// file_put_contents('debug_scholar.html', $res['message']);
-// exit;
+
 
 if($res['code'] == '200'){
     $html = new simple_html_dom();
@@ -63,7 +57,6 @@ if($res['code'] == '200'){
         // Ambil URL detail untuk artikel INI
         $titleNode = $row->find('a.gsc_a_at', 0);
         
-
         if ($titleNode) {
             $detail_url = 'https://scholar.google.com' . html_entity_decode($titleNode->href);
             
@@ -94,7 +87,7 @@ if($res['code'] == '200'){
             }
         }
         
-        
+        echo "<br>";
         $i++;
         sleep(5); //anti block
     }
@@ -102,10 +95,6 @@ if($res['code'] == '200'){
     unset($html);
 }
 #endregion
-
-
-
-
 
 #region function
 function extract_html($url) {
