@@ -82,7 +82,7 @@ if($res['code'] == '200'){
                     if ($label == 'Jurnal') {
                         echo "<b>Jurnal</b>: {$value}<br>";
                     }
-                    sleep(3); 
+                    sleep(2); 
                 }
             }
         }
