@@ -6,7 +6,7 @@ set_time_limit(0);
 $author  = trim($_POST['penulis'] ?? '');
 $limit   = (int)($_POST['jumlahData']);
 
-if ($author === '' && $keyword === '') {
+if ($author == '') {
     die("Penulis atau keyword harus diisi");
 }
 
@@ -65,7 +65,7 @@ if($res['code'] == '200'){
             // Ambil detail artikel
             $detail_res = extract_html($detail_url);
             
-            if ($detail_res['code'] === 200) {
+            if ($detail_res['code'] == 200) {
                 $detail_dom = new simple_html_dom();
                 $detail_dom->load($detail_res['message']);
                 
